@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Logs
+uvicorn.log
+uvicorn_err.log
+vite_out.txt
+
+# Frontend build & deps
+frontend/node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+playwright-browsers/
+
+# Debug / temp files
+*.png
+*.html
+cathay_debug.json
+nca_response.html
+
+# One-off test / dev scripts in root
+ana_cargo_tracker.py
+track_ana*.py
+test_*.py
+
+# Temp output / debug JSON
+server_out.txt
+server_err.txt
+tracking_*.json
+validate_result.json
