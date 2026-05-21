@@ -7,7 +7,7 @@ from typing import Optional
 PW_ARGS = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
 
 # Max concurrent Playwright browsers to avoid OOM in container (1 GB RAM)
-PW_SEMAPHORE = asyncio.Semaphore(2)
+PW_SEMAPHORE = asyncio.Semaphore(4)
 
 
 @dataclass

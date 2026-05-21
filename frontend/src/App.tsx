@@ -263,7 +263,7 @@ function TableRow({
         className="c-status sticky-status"
         style={{ left: MAWB_COL_W, width: statusWidth, minWidth: statusWidth }}
       >
-        <span className={badgeClass(data.status)}>{data.status || data.status_code}</span>
+        <span className={badgeClass(data.status)}>{data.status || data.status_code || 'No Data'}</span>
       </td>
       {legCells}
       {cargoCells}
