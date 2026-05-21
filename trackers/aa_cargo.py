@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE_HEAVY as PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
 
 _TRACK_PAGE    = "https://www.aacargo.com/AACargo/tracking?awbCode0={prefix}&awbNum0={number}"
 _API_PATH      = "/api/tracking/awbs/"
