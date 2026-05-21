@@ -372,7 +372,7 @@ export default function App() {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!resizingRef.current) return
-      setStatusWidth(w => Math.max(50, resizeStartW.current + (e.clientX - resizeStartX.current)))
+      setStatusWidth(_w => Math.max(50, resizeStartW.current + (e.clientX - resizeStartX.current)))
     }
     const onUp = () => { resizingRef.current = false }
     window.addEventListener('mousemove', onMove)
