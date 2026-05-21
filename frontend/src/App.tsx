@@ -19,6 +19,41 @@ const LEG_PALETTE = [
 // MAWB must be NNN-NNNNNNN or NNN-NNNNNNNN (3 digits, dash, 7-8 digits)
 const AWB_RE = /^\d{3}-\d{7,8}$/
 
+// IATA → ICAO mapping: FlightAware uses ICAO codes in its flight URLs
+const FA_REMAP: Record<string, string> = {
+  'AA': 'AAL',  // American Airlines
+  'MU': 'CES',  // China Eastern
+  'BA': 'BAW',  // British Airways (IAG Cargo)
+  'IB': 'IBE',  // Iberia (IAG Cargo)
+  'CX': 'CPA',  // Cathay Pacific
+  'CV': 'CLX',  // Cargolux
+  'KE': 'KAL',  // Korean Air
+  'NH': 'ANA',  // All Nippon Airways
+  'TK': 'THY',  // Turkish Airlines/Cargo
+  'K4': 'CKS',  // Kalitta Air
+  'CI': 'CAL',  // China Airlines
+  '5Y': 'GTI',  // Atlas Air
+  'BR': 'EVA',  // EVA Air
+  'CZ': 'CSN',  // China Southern
+  'HU': 'CHH',  // Hainan Airlines (HNA Cargo)
+  'O3': 'CSS',  // SF Airlines
+  'KZ': 'NCA',  // Nippon Cargo Airlines
+  'OZ': 'AAR',  // Asiana Airlines
+  'CK': 'CKK',  // China Cargo Airlines
+}
+function toFlightAwareUrl(raw: string): string {
+  const s = raw.trim().replace(/\s+/g, '').toUpperCase()
+  for (const iata of Object.keys(FA_REMAP).sort((a, b) => b.length - a.length)) {
+    if (s.startsWith(iata)) {
+      const num = s.slice(iata.length).replace(/^0+(\d)/, '$1')
+      return `https://www.flightaware.com/live/flight/${encodeURIComponent(FA_REMAP[iata] + num)}`
+    }
+  }
+  return `https://www.flightaware.com/live/flight/${encodeURIComponent(
+    s.replace(/^([A-Z]{1,3})0+(\d)/, '$1$2')
+  )}`
+}
+
 // ── Notes banner ──────────────────────────────────────────────────────
 const NOTES = [
   {
@@ -81,12 +116,15 @@ function badgeClass(s: string) {
 
 function dotClass(s: FlightLeg['departure_status']) { return `dot dot-${s}` }
 
-function fmtTime(time: string, date: string, status: FlightLeg['departure_status']) {
+function fmtTime(time: string, date: string, status: FlightLeg['departure_status'], kind: 'dep' | 'arr') {
   if (!time) return null
+  const label = status === 'actual'
+    ? (kind === 'dep' ? 'ATD' : 'ATA')
+    : (kind === 'dep' ? 'ETD' : 'ETA')
   return (
     <div className="c-time">
       <div className="dt">{date} {time}</div>
-      <div className="s"><span className={dotClass(status)} />{status}</div>
+      <div className="s"><span className={dotClass(status)} />{label}</div>
     </div>
   )
 }
@@ -186,7 +224,7 @@ function TableRow({
       <Fragment key={i}>
         <td className={`c-flight${sep}`} style={{ background: bg }}>
           <a
-            href={`https://www.flightaware.com/live/flight/${leg.flight_no.replace(/^([A-Z]{1,3})0+(\d)/, '$1$2')}`}
+            href={toFlightAwareUrl(leg.flight_no)}
             target="_blank"
             rel="noreferrer"
             className="flight-link"
@@ -196,8 +234,8 @@ function TableRow({
         </td>
         <td className="c-ap" style={{ background: bg }}>{leg.from_airport}</td>
         <td className="c-ap" style={{ background: bg }}>{leg.to_airport}</td>
-        <td style={{ background: bg }}>{fmtTime(leg.departure_time, leg.departure_date, leg.departure_status) || <span className="c-empty">—</span>}</td>
-        <td style={{ background: bg }}>{fmtTime(leg.arrival_time,   leg.arrival_date,   leg.arrival_status)   || <span className="c-empty">—</span>}</td>
+        <td style={{ background: bg }}>{fmtTime(leg.departure_time, leg.departure_date, leg.departure_status, 'dep') || <span className="c-empty">—</span>}</td>
+        <td style={{ background: bg }}>{fmtTime(leg.arrival_time,   leg.arrival_date,   leg.arrival_status,   'arr') || <span className="c-empty">—</span>}</td>
       </Fragment>
     )
   })
