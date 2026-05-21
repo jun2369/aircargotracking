@@ -17,7 +17,7 @@ from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 from bs4 import BeautifulSoup
 
-from .base import AirlineTracker, FlightLeg, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, TrackingResult, ULDItem, ULDResult
 
 _FORM_URL = (
     "https://tang.csair.com/EN/WebFace/Tang.WebFace.Cargo/"
@@ -175,7 +175,7 @@ async def _playwright_fetch(prefix: str, number: str) -> str:
 
     async with Stealth().use_async(async_playwright()) as pw:
         # Prefer installed Chrome/Edge for better anti-bot bypass
-        launch_opts = dict(headless=True)
+        launch_opts = dict(headless=True, args=PW_ARGS)
         try:
             browser = await pw.chromium.launch(channel="chrome", **launch_opts)
         except Exception:

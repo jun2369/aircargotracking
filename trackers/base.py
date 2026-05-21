@@ -2,6 +2,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
 
+# Playwright launch args required for Docker/container environments
+PW_ARGS = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+
 
 @dataclass
 class ULDItem:
