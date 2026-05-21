@@ -19,7 +19,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
 
 # Cache: awb → {normalized_flight_no → [uld_string, ...]}
 _nca_uld_cache: dict[str, dict[str, list[str]]] = {}
@@ -108,7 +108,8 @@ async def _playwright_fetch(prefix: str, number: str) -> str:
 
     url = f"{_PORTAL_BASE}?trkTxnValue={prefix}-{number}"
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         browser = await pw.chromium.launch(
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],

@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, PW_ARGS, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
 
 _TRACK_URL  = "https://www.turkishcargo.com/en/cargo-tracking"
 _cargo_cache: dict[str, tuple[Optional[int], Optional[float]]] = {}  # awb → (pieces, weight_kg)
@@ -55,7 +55,8 @@ async def _playwright_fetch(prefix: str, number: str) -> list | dict:
     import json as _json
     result_holder: dict = {}
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         # Prefer installed Chrome/Edge (better Akamai bypass)
         launch_opts = dict(headless=True, args=PW_ARGS)
         try:

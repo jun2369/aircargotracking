@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, PW_ARGS, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
 
 _CARGO_PAGE = "https://www.anacargo.jp/en/int/"
 _GQL_PATH   = "/portalgateway/graphql"
@@ -32,7 +32,8 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
     result_holder: dict = {}
     popup_holder:  dict = {}
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         browser = await pw.chromium.launch(headless=True, args=PW_ARGS)
         try:
             ctx = await browser.new_context(

@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, TrackingResult
+from .base import AirlineTracker, FlightLeg, PW_SEMAPHORE, TrackingResult
 
 _TRACK_URL = "https://www.hnacargo.com/Portal2/AwbSearch.aspx"
 _UA = (
@@ -90,7 +90,8 @@ def _has_results(html: str) -> bool:
 async def _playwright_fetch(prefix: str, number: str) -> str:
     awb = f"{prefix}-{number}"
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         browser = await pw.chromium.launch(
             headless=True,
             args=["--no-sandbox", "--disable-dev-shm-usage"],

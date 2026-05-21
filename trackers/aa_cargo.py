@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, PW_ARGS, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
 
 _TRACK_PAGE    = "https://www.aacargo.com/AACargo/tracking?awbCode0={prefix}&awbNum0={number}"
 _API_PATH      = "/api/tracking/awbs/"
@@ -65,7 +65,8 @@ async def _17track_fetch(prefix: str, number: str) -> dict | None:
     awb = f"{prefix}-{number}"
     result_holder: dict = {}
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         try:
             browser = await pw.chromium.launch(channel="chrome", headless=True)
         except Exception:
@@ -110,7 +111,8 @@ async def _17track_fetch(prefix: str, number: str) -> dict | None:
 async def _playwright_fetch(prefix: str, number: str) -> list:
     result_holder: dict = {}
 
-    async with Stealth().use_async(async_playwright()) as pw:
+    async with PW_SEMAPHORE:
+      async with Stealth().use_async(async_playwright()) as pw:
         launch_opts = dict(headless=True, args=PW_ARGS)
         try:
             browser = await pw.chromium.launch(channel="chrome", **launch_opts)

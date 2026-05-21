@@ -1,9 +1,13 @@
+import asyncio
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
 
 # Playwright launch args required for Docker/container environments
 PW_ARGS = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+
+# Max concurrent Playwright browsers to avoid OOM in container (1 GB RAM)
+PW_SEMAPHORE = asyncio.Semaphore(2)
 
 
 @dataclass
