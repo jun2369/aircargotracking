@@ -3,7 +3,7 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/ ./
 RUN NODE_ENV=development npm ci
-RUN npm run build
+RUN node_modules/.bin/vite build
 
 # Stage 2: backend + serve frontend
 FROM python:3.11-slim
