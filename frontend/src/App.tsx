@@ -85,8 +85,7 @@ function fmtTime(time: string, date: string, status: FlightLeg['departure_status
   if (!time) return null
   return (
     <div className="c-time">
-      <div className="t">{time}</div>
-      <div className="d">{date}</div>
+      <div className="dt">{date} {time}</div>
       <div className="s"><span className={dotClass(status)} />{status}</div>
     </div>
   )
@@ -257,7 +256,6 @@ function TableHeader({
       <tr>
         {/* Sticky MAWB — sortable */}
         <th
-          rowSpan={2}
           className="sticky-awb sortable"
           style={{ width: MAWB_COL_W, minWidth: MAWB_COL_W }}
           onClick={() => onSort('mawb')}
@@ -266,34 +264,22 @@ function TableHeader({
         </th>
         {/* Sticky resizable Status */}
         <th
-          rowSpan={2}
           className="sticky-status"
           style={{ left: MAWB_COL_W, width: statusWidth, minWidth: statusWidth }}
         >
           Status
           <div className="col-resize-handle" onMouseDown={onResizeStart} />
         </th>
-        {/* Flight group headers */}
-        {Array.from({ length: MAX_LEGS }, (_, i) => (
-          <th
-            key={i}
-            colSpan={5}
-            className={`leg-group-hdr${i === 0 ? ' grp-sep' : ''}`}
-            style={{ background: LEG_PALETTE[i].hdr }}
-          >
-            {LEG_LABELS[i]}
-          </th>
-        ))}
-        {Array.from({ length: maxCargo }, (_, i) => (
-          <th key={i} className={`cargo-hdr${i === 0 ? ' grp-sep' : ''}`}>
-            Cargo info {i + 1}
-          </th>
-        ))}
-      </tr>
-      <tr className="sub-hdr">
+        {/* Single-row flight group headers — group label + sub-label stacked in first col */}
         {Array.from({ length: MAX_LEGS }, (_, i) => (
           <Fragment key={i}>
-            <th className={i === 0 ? 'grp-sep' : ''} style={{ background: LEG_PALETTE[i].hdr }}>Flight</th>
+            <th
+              className={`leg-first-col${i === 0 ? ' grp-sep' : ''}`}
+              style={{ background: LEG_PALETTE[i].hdr }}
+            >
+              <div className="leg-grp-label">{LEG_LABELS[i]}</div>
+              <div>Flight</div>
+            </th>
             <th style={{ background: LEG_PALETTE[i].hdr }}>From</th>
             <th style={{ background: LEG_PALETTE[i].hdr }}>To</th>
             <th style={{ background: LEG_PALETTE[i].hdr }}>ATD / ETD</th>
@@ -307,7 +293,9 @@ function TableHeader({
           </Fragment>
         ))}
         {Array.from({ length: maxCargo }, (_, i) => (
-          <th key={i} className={`cargo-hdr${i === 0 ? ' grp-sep' : ''}`}></th>
+          <th key={i} className={`cargo-hdr${i === 0 ? ' grp-sep' : ''}`}>
+            Cargo info {i + 1}
+          </th>
         ))}
       </tr>
     </thead>
