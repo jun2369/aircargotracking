@@ -6,4 +6,5 @@ __pycache__
 .venv
 venv
 *.png
-*.html
+nca_response.html
+cathay_debug.html
