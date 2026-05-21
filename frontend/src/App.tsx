@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import './App.css'
 import { trackShipment, fetchULD } from './api'
 import type { TrackingResult, FlightLeg } from './types'
@@ -381,53 +381,83 @@ export default function App() {
     })
   }, [rows, sortCol, sortDir])
 
-  function handleExport() {
+  async function handleExport() {
     const legCount = 3
     const maxULD = Math.max(1, ...rows.map(r => (r.kind === 'ok' && r.ulds ? r.ulds.length : 0)))
 
+    const baseHeaders = ['MAWB', 'Status', 'From', 'To', 'Pieces', 'Weight (kg)']
     const legHeaders: string[] = []
     for (let i = 1; i <= legCount; i++) {
       legHeaders.push(
-        `Leg${i} Flight`, `Leg${i} From`, `Leg${i} To`,
-        `Leg${i} Dep Date`, `Leg${i} Dep Time`, `Leg${i} Dep Status`,
-        `Leg${i} Arr Date`, `Leg${i} Arr Time`, `Leg${i} Arr Status`,
+        `Flight ${i} Flight`, `Flight ${i} From`, `Flight ${i} To`,
+        `Flight ${i} Dept Datetime`, `Flight ${i} Dept Status`,
+        `Flight ${i} Arr Datetime`,  `Flight ${i} Arr Status`,
       )
     }
     const uldHeaders = Array.from({ length: maxULD }, (_, i) => `Cargo ${i + 1}`)
-    const headers = ['MAWB', 'Status', 'From', 'To', 'Pieces', 'Weight (kg)', ...legHeaders, ...uldHeaders]
+    const allHeaders = [...baseHeaders, ...legHeaders, ...uldHeaders]
 
-    const dataRows = rows.map(row => {
-      if (row.kind === 'loading') return [row.awb, 'Loading...']
-      if (row.kind === 'error')   return [row.awb, `Error: ${row.message}`]
+    // ARGB color palette (AA + RRGGBB)
+    const LEG_ARGB  = ['FF1A3A5C', 'FF155B35', 'FF6B3D10'] as const
+    const BASE_ARGB = 'FF3D3D3D'
+    const CARGO_ARGB = 'FF2A5080'
+
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Tracking')
+
+    // Header row with colors
+    const hdrRow = ws.addRow(allHeaders)
+    hdrRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+      const col = colNum - 1  // 0-based
+      let bgArgb: string
+      if (col < baseHeaders.length) {
+        bgArgb = BASE_ARGB
+      } else {
+        const legCol = col - baseHeaders.length
+        const legIdx = Math.floor(legCol / 7)
+        bgArgb = legIdx < 3 ? LEG_ARGB[legIdx] : CARGO_ARGB
+      }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } }
+      cell.font = { color: { argb: 'FFFFFFFF' }, bold: true }
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: false }
+    })
+    hdrRow.height = 20
+
+    // Data rows
+    rows.forEach(row => {
+      if (row.kind === 'loading') { ws.addRow([row.awb, 'Loading...']); return }
+      if (row.kind === 'error')   { ws.addRow([row.awb, `Error: ${row.message}`]); return }
       const { data, ulds } = row
       const base = [
-        data.awb,
-        data.status || data.status_code,
-        data.from_airport,
-        data.to_airport,
-        data.total_pieces ?? '',
-        data.total_weight_kg ?? '',
+        data.awb, data.status || data.status_code,
+        data.from_airport, data.to_airport,
+        data.total_pieces ?? '', data.total_weight_kg ?? '',
       ]
       const legCells: (string | number)[] = []
       for (let i = 0; i < legCount; i++) {
         const leg = data.flights[i]
         if (leg) {
+          const depDt = [leg.departure_date, leg.departure_time].filter(Boolean).join(' ')
+          const arrDt = [leg.arrival_date,   leg.arrival_time  ].filter(Boolean).join(' ')
           legCells.push(leg.flight_no, leg.from_airport, leg.to_airport,
-            leg.departure_date, leg.departure_time, leg.departure_status,
-            leg.arrival_date, leg.arrival_time, leg.arrival_status)
+            depDt, leg.departure_status, arrDt, leg.arrival_status)
         } else {
-          legCells.push('', '', '', '', '', '', '', '', '')
+          legCells.push('', '', '', '', '', '', '')
         }
       }
       const uldCells = Array.from({ length: maxULD }, (_, i) => ulds?.[i] ?? '')
-      return [...base, ...legCells, ...uldCells]
+      ws.addRow([...base, ...legCells, ...uldCells])
     })
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows])
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Tracking')
-    const date = new Date().toISOString().slice(0, 10)
-    XLSX.writeFile(wb, `cargo-tracking-${date}.xlsx`)
+    // Download
+    const buffer = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `cargo-tracking-${new Date().toISOString().slice(0, 10)}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function handleSearch() {

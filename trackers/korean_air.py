@@ -31,6 +31,9 @@ _REQ_HEADERS = {
     "Referer": _TRACK_P,
 }
 
+# ── ULD cache: awb → {flight_no → {uldNos, carCode, fltNoRaw, fltType}} ──
+_ke_uld_cache: dict[str, dict[str, dict]] = {}
+
 # ── session cache ─────────────────────────────────────────────────────────
 
 class _Session:
@@ -104,6 +107,7 @@ class KoreanAirCargoTracker(AirlineTracker):
 
     async def track(self, prefix: str, number: str) -> TrackingResult:
         awb_display = f"{prefix}-{number}"
+        _ke_uld_cache.pop(awb_display, None)  # clear before fresh fetch
         session_id, region, cookies = await _get_session()
 
         async with httpx.AsyncClient(
@@ -130,7 +134,25 @@ class KoreanAirCargoTracker(AirlineTracker):
         if not payload_list or not payload_list[0].get("origin"):
             raise HTTPException(404, f"AWB {awb_display} not found on Korean Air Cargo")
 
-        return self._parse(awb_display, payload_list[0])
+        p = payload_list[0]
+        # Cache ULD info from DEP events so fetch_uld() avoids a redundant re-fetch
+        uld_by_fn: dict[str, dict] = {}
+        for ev in (p.get("eventDetails") or []):
+            if ev.get("eventCode") != "DEP":
+                continue
+            flt_info = ev.get("fltDetail") or {}
+            fn = (flt_info.get("carCode", "") + flt_info.get("fltNo", "")).strip()
+            if fn and (ev.get("uldNo") or []):
+                uld_by_fn[fn] = {
+                    "uldNos":    ev["uldNo"],
+                    "carCode":   flt_info.get("carCode", ""),
+                    "fltNoRaw":  flt_info.get("fltNo", ""),
+                    "fltType":   flt_info.get("fltType", "FREIGHTER"),
+                }
+        if uld_by_fn:
+            _ke_uld_cache[awb_display] = uld_by_fn
+
+        return self._parse(awb_display, p)
 
     def _parse(self, awb: str, p: dict) -> TrackingResult:
         flt_details = p.get("fltDetails") or []
@@ -187,56 +209,23 @@ class KoreanAirCargoTracker(AirlineTracker):
         departure_date: str,
         flrs_id: int,
     ) -> ULDResult:
-        session_id, region, cookies = await _get_session()
-        client_kwargs = dict(
-            timeout=20, cookies=cookies, headers={"User-Agent": _UA}
-        )
-
-        # Re-fetch tracking to get uldNo list from the matching DEP event
-        async with httpx.AsyncClient(**client_kwargs) as client:
-            track_resp = await client.post(
-                f"{_API}/trackawb",
-                headers=_REQ_HEADERS,
-                json={
-                    "generalInfo": _general_info(session_id),
-                    "userInfo": _user_info(region),
-                    "payLoad": [{"awbPrefix": prefix, "awbDocNo": awb_number}],
-                },
-            )
-
-        if track_resp.status_code != 200:
-            raise HTTPException(502, f"Korean Air ULD: trackawb HTTP {track_resp.status_code}")
-        payload_list = track_resp.json().get("payLoad") or []
-        if not payload_list:
-            raise HTTPException(404, f"AWB {prefix}-{awb_number} not found")
-        p = payload_list[0]
-
-        # Find DEP event matching this flight + departure airport
-        uld_nos: list[str] = []
-        car_code   = ""
-        flt_no_raw = ""
-        flt_type   = "FREIGHTER"
-
-        for ev in p.get("eventDetails") or []:
-            if ev.get("eventCode") != "DEP":
-                continue
-            if ev.get("arpCode") != departure:
-                continue
-            flt_info = ev.get("fltDetail") or {}
-            fn = (flt_info.get("carCode", "") + flt_info.get("fltNo", "")).strip()
-            if fn != flight_no:
-                continue
-            uld_nos    = ev.get("uldNo") or []
-            car_code   = flt_info.get("carCode", "")
-            flt_no_raw = flt_info.get("fltNo", "")
-            flt_type   = flt_info.get("fltType", "FREIGHTER")
-            break
-
-        if not uld_nos:
+        awb_display = f"{prefix}-{awb_number}"
+        cached = (_ke_uld_cache.get(awb_display) or {}).get(flight_no)
+        if not cached:
             return ULDResult(
                 flight_no=flight_no, departure_date=departure_date,
                 departure=departure, arrival=arrival, ulds=[],
             )
+
+        uld_nos    = cached["uldNos"]
+        car_code   = cached["carCode"]
+        flt_no_raw = cached["fltNoRaw"]
+        flt_type   = cached["fltType"]
+
+        session_id, region, cookies = await _get_session()
+        client_kwargs = dict(
+            timeout=20, cookies=cookies, headers={"User-Agent": _UA}
+        )
 
         # Get per-ULD piece counts from getboardinglist
         flt_date_str = _date_to_ke(departure_date)
