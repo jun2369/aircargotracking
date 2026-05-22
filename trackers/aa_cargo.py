@@ -72,21 +72,25 @@ async def _17track_fetch(prefix: str, number: str) -> dict | None:
         except Exception:
             browser = await pw.chromium.launch(headless=True, args=PW_ARGS)
         try:
-            ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
+            ctx = await browser.new_context(
+                user_agent=_UA,
+                viewport={"width": 1280, "height": 800},
+            )
             page = await ctx.new_page()
 
             async def on_response(response):
-                if "restapi" in response.url and response.status == 200:
-                    try:
-                        data = await response.json()
-                        if data.get("meta", {}).get("code") == 200:
-                            shipments = data.get("shipments") or []
-                            if shipments and shipments[0].get("code") == 200:
-                                result_holder["data"] = data
-                            elif "pending" not in result_holder:
-                                result_holder["pending"] = data
-                    except Exception:
-                        pass
+                if "17track.net" not in response.url or response.status != 200:
+                    return
+                try:
+                    data = await response.json()
+                except Exception:
+                    return
+                if data.get("meta", {}).get("code") == 200:
+                    shipments = data.get("shipments") or []
+                    if shipments and shipments[0].get("code") == 200:
+                        result_holder["data"] = data
+                    elif "pending" not in result_holder:
+                        result_holder["pending"] = data
 
             page.on("response", on_response)
 
@@ -96,8 +100,8 @@ async def _17track_fetch(prefix: str, number: str) -> dict | None:
                 timeout=30_000,
             )
 
-            # Wait up to 25s — 17track polls the carrier and a second response arrives ~10s later
-            for _ in range(50):
+            # Wait up to 45s — 17track polls the carrier; second response arrives ~10s later
+            for _ in range(90):
                 if "data" in result_holder:
                     break
                 await asyncio.sleep(0.5)

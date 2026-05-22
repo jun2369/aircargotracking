@@ -58,7 +58,8 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
                 if response.status != 200:
                     return
                 url = response.url
-                if "json" not in response.headers.get("content-type", ""):
+                ct = response.headers.get("content-type", "")
+                if "json" not in ct and "text" not in ct:
                     return
                 if any(x in url for x in (".js", ".css", ".png", ".svg", ".ico",
                                            "analytics", "gtm", "oauth", "font")):
@@ -79,7 +80,7 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
                 if len(body.get("bookingStatus") or []) >= len((cur.get("bookingStatus") or [])):
                     result_holder["data"] = body
 
-            page.on("response", on_response)
+            ctx.on("response", on_response)
 
             await page.goto(_TRACK_PAGE, wait_until="domcontentloaded", timeout=40_000)
             await page.wait_for_timeout(2500)
