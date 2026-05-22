@@ -68,9 +68,9 @@ async def _17track_fetch(prefix: str, number: str) -> dict | None:
     async with PW_SEMAPHORE:
       async with Stealth().use_async(async_playwright()) as pw:
         try:
-            browser = await pw.chromium.launch(channel="chrome", headless=True)
+            browser = await pw.chromium.launch(channel="chrome", headless=True, args=PW_ARGS)
         except Exception:
-            browser = await pw.chromium.launch(headless=True)
+            browser = await pw.chromium.launch(headless=True, args=PW_ARGS)
         try:
             ctx = await browser.new_context(viewport={"width": 1280, "height": 800})
             page = await ctx.new_page()

@@ -82,7 +82,11 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
             page.on("response", on_response)
 
             await page.goto(_TRACK_PAGE, wait_until="domcontentloaded", timeout=40_000)
-            await page.wait_for_timeout(3000)
+            await page.wait_for_timeout(2500)
+            for mx, my in [(300, 250), (500, 350), (700, 300), (450, 400), (600, 350)]:
+                await page.mouse.move(mx, my)
+                await asyncio.sleep(0.3)
+            await page.wait_for_timeout(4000)
 
             for consent_sel in [
                 "button:has-text('Accept all')", "button:has-text('Accept')",
@@ -131,9 +135,9 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
             if not submitted:
                 await page.keyboard.press("Enter")
 
-            # Wait up to 30s; only exit when bookingStatus is non-empty
+            # Wait up to 60s; only exit when bookingStatus is non-empty
             # (avoids stopping early on empty template responses)
-            for _ in range(60):
+            for _ in range(120):
                 d = result_holder.get("data")
                 if d and (d.get("bookingStatus") or d.get("shipHistory")):
                     break
