@@ -5,6 +5,7 @@ Used by AA Cargo (001) and Cathay Pacific (160) to bypass Akamai/cloud IP blocks
 API key is read from the SEVENTEEN_TRACK_API_KEY environment variable.
 Free tier: 200 queries/month.
 """
+import asyncio
 import os
 from typing import Optional
 
@@ -120,29 +121,39 @@ async def fetch_tracking(awb: str) -> Optional[TrackingResult]:
     payload = [{"number": awb}]
 
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             # Register the AWB (idempotent — safe to call every time)
             await client.post(f"{_API_BASE}/register", json=payload, headers=headers)
 
-            # Fetch real-time data directly from the carrier via 17track
-            resp = await client.post(
-                f"{_API_BASE}/getRealTimeTrackInfo",
-                json=payload,
-                headers=headers,
-            )
-            if resp.status_code != 200:
-                return None
+            # Retry up to 3 times: 17track may need ~15s to fetch from carrier
+            # on first registration before getRealTimeTrackInfo returns data.
+            for attempt in range(3):
+                if attempt > 0:
+                    await asyncio.sleep(15)
 
-            data = resp.json()
-            if data.get("code") != 0:
-                return None
+                resp = await client.post(
+                    f"{_API_BASE}/getRealTimeTrackInfo",
+                    json=payload,
+                    headers=headers,
+                )
+                if resp.status_code != 200:
+                    return None
 
-            accepted = (data.get("data") or {}).get("accepted") or []
-            if not accepted:
-                return None
+                data = resp.json()
+                if data.get("code") != 0:
+                    return None
 
-            track = accepted[0].get("track") or {}
-            return _build_result(awb, track)
+                accepted = (data.get("data") or {}).get("accepted") or []
+                if not accepted:
+                    return None
+
+                track = accepted[0].get("track") or {}
+                result = _build_result(awb, track)
+                if result is not None:
+                    return result
+                # NotFound/Expired on this attempt — retry if more attempts left
+
+            return None
 
     except Exception:
         return None
