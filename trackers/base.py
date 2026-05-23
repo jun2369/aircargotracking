@@ -1,10 +1,26 @@
 import asyncio
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional
 
 # Playwright launch args required for Docker/container environments
 PW_ARGS = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
+
+
+def get_proxy() -> dict | None:
+    """Return Playwright proxy dict if PROXY_SERVER env var is set, else None."""
+    server = os.environ.get("PROXY_SERVER", "")
+    if not server:
+        return None
+    cfg: dict = {"server": server}
+    user = os.environ.get("PROXY_USER", "")
+    pw   = os.environ.get("PROXY_PASS", "")
+    if user:
+        cfg["username"] = user
+    if pw:
+        cfg["password"] = pw
+    return cfg
 
 # Max concurrent Playwright browsers to avoid OOM in container (1 GB RAM)
 PW_SEMAPHORE       = asyncio.Semaphore(3)  # most Playwright trackers

@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE_HEAVY as PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
+from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE_HEAVY as PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult, get_proxy
 from . import seventeen_track as _17t
 
 _TRACK_PAGE = "https://www.cathaycargo.com/en-us/track-and-trace.html"
@@ -49,9 +49,11 @@ async def _playwright_fetch(prefix: str, number: str) -> dict:
             except Exception:
                 browser = await pw.chromium.launch(**launch_opts)
         try:
+            proxy = get_proxy()
             ctx = await browser.new_context(
                 user_agent=_UA,
                 viewport={"width": 1280, "height": 800},
+                **({"proxy": proxy} if proxy else {}),
             )
             page = await ctx.new_page()
 
