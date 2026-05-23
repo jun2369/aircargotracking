@@ -179,6 +179,21 @@ async def _playwright_fetch(prefix: str, number: str) -> list:
                 except Exception:
                     pass
 
+            # Dismiss cookie consent overlay if present (OneTrust blocks all clicks)
+            for consent_sel in [
+                "#onetrust-accept-btn-handler",
+                "button:has-text('Accept All')", "button:has-text('Accept all')",
+                "button:has-text('Accept')", "button:has-text('I Agree')",
+            ]:
+                try:
+                    el = await page.query_selector(consent_sel)
+                    if el:
+                        await el.click(timeout=3000)
+                        await page.wait_for_timeout(500)
+                        break
+                except Exception:
+                    pass
+
             # form fill fallback — visible click triggers the page's own tracking call
             if "data" not in result_holder:
                 for sel in [
