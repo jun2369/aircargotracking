@@ -75,6 +75,37 @@ async def uld_detail(
     return asdict(result)
 
 
+@app.get("/api/debug/17track/{awb}")
+async def debug_17track(awb: str):
+    """Return raw 17track REST API response for debugging."""
+    import os, httpx
+    api_key = os.environ.get("SEVENTEEN_TRACK_API_KEY", "")
+    if not api_key:
+        return {"error": "SEVENTEEN_TRACK_API_KEY not set"}
+
+    api_base = "https://api.17track.net/track/v2.2"
+    headers = {"17token": api_key, "Content-Type": "application/json"}
+    payload = [{"number": awb}]
+
+    results = {}
+    async with httpx.AsyncClient(timeout=30) as client:
+        reg = await client.post(f"{api_base}/register", json=payload, headers=headers)
+        results["register_status"] = reg.status_code
+        try:
+            results["register_body"] = reg.json()
+        except Exception:
+            results["register_body"] = reg.text
+
+        resp = await client.post(f"{api_base}/getRealTimeTrackInfo", json=payload, headers=headers)
+        results["realtime_status"] = resp.status_code
+        try:
+            results["realtime_body"] = resp.json()
+        except Exception:
+            results["realtime_body"] = resp.text
+
+    return results
+
+
 @app.get("/api/airlines")
 async def airlines():
     seen = set()
