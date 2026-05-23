@@ -15,6 +15,7 @@ from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
 from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE_HEAVY as PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
+from . import seventeen_track as _17t
 
 _TRACK_PAGE    = "https://www.aacargo.com/AACargo/tracking?awbCode0={prefix}&awbNum0={number}"
 _API_PATH      = "/api/tracking/awbs/"
@@ -488,7 +489,11 @@ class AACargoTracker(AirlineTracker):
             result = _parse(awb, data)
             _aa_cargo_cache[awb] = (result.total_pieces, result.total_weight_kg)
             return result
-        # Primary path: 17track as proxy (reliable, bypasses Akamai)
+        # REST API path: 17track server-to-server (fastest, no browser needed)
+        rest = await _17t.fetch_tracking(awb)
+        if rest is not None:
+            return rest
+        # Playwright 17track fallback
         data17 = await _17track_fetch(prefix, number)
         if data17 is not None:
             shipments = data17.get("shipments") or []

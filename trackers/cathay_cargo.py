@@ -15,6 +15,7 @@ from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
 from .base import AirlineTracker, FlightLeg, PW_ARGS, PW_SEMAPHORE_HEAVY as PW_SEMAPHORE, TrackingResult, ULDItem, ULDResult
+from . import seventeen_track as _17t
 
 _TRACK_PAGE = "https://www.cathaycargo.com/en-us/track-and-trace.html"
 _UA = (
@@ -173,6 +174,11 @@ class CathayCargoTracker(AirlineTracker):
 
     async def track(self, prefix: str, number: str) -> TrackingResult:
         awb_display = f"{prefix}-{number}"
+        # REST API path: 17track server-to-server (fastest, no browser needed)
+        rest = await _17t.fetch_tracking(awb_display)
+        if rest is not None:
+            return rest
+        # Playwright fallback
         data = await _playwright_fetch(prefix, number)
         _response_cache[awb_display] = data
         return self._parse(awb_display, data)
